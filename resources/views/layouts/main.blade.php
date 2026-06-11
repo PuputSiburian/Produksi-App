@@ -1,0 +1,1 @@
+@extends(Auth::user()->role == 'manager' ? 'layouts.manager' : 'layouts.app')
