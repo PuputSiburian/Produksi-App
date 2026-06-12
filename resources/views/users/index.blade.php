@@ -101,7 +101,7 @@
                                     <span class="badge bg-secondary">Aktif</span>
                                 @endif
                             </td>
-                            <td>{{ $user->created_at->format('d/m/Y') }}点
+                            z<td>{{ $user->created_at->format('d/m/Y') }}
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
                                     <!-- EDIT -->
