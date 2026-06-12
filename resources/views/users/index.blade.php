@@ -40,7 +40,7 @@
                     <input type="text" name="search" class="form-control" placeholder="Cari nama atau email..." value="{{ request('search') }}">
                 </div>
                 <div class="col-md-3">
-                    <select name="role" class="form-control">
+                    <select name="role" class="form-select">
                         <option value="semua" {{ request('role') == 'semua' ? 'selected' : '' }}>Semua Role</option>
                         <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Admin</option>
                         <option value="manager" {{ request('role') == 'manager' ? 'selected' : '' }}>Manager</option>
@@ -101,7 +101,7 @@
                                     <span class="badge bg-secondary">Aktif</span>
                                 @endif
                             </td>
-                            z<td>{{ $user->created_at->format('d/m/Y') }}
+                            <td>{{ $user->created_at->format('d/m/Y') }}</td>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
                                     <!-- EDIT -->
@@ -118,12 +118,22 @@
                                             <i class="fas fa-trash"></i> Hapus
                                         </button>
                                     </form>
+                                    @else
+                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" disabled title="Tidak dapat menghapus akun sendiri">
+                                            <i class="fas fa-trash"></i> Hapus
+                                        </button>
                                     @endif
                                     
-                                    <!-- RESET PASSWORD (BISA untuk semua user, Admin bisa reset password sendiri) -->
-                                    <a href="{{ route('users.reset-password', $user->id) }}" class="btn btn-sm btn-outline-info rounded-pill" onclick="return confirm('Yakin ingin mereset password user {{ $user->name }}? Password baru: password123')">
-                                        <i class="fas fa-key"></i> Reset PW
-                                    </a>
+                                    <!-- RESET PASSWORD -->
+                                    @if($user->id == auth()->id())
+                                        <a href="{{ route('users.reset-password', $user->id) }}" class="btn btn-sm btn-outline-info rounded-pill" onclick="return confirm('Yakin ingin mereset password Anda? Password baru: password123')">
+                                            <i class="fas fa-key"></i> Reset PW
+                                        </a>
+                                    @else
+                                        <a href="{{ route('users.reset-password', $user->id) }}" class="btn btn-sm btn-outline-info rounded-pill" onclick="return confirm('Yakin ingin mereset password user {{ $user->name }}? Password baru: password123')">
+                                            <i class="fas fa-key"></i> Reset PW
+                                        </a>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
