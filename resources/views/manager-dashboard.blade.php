@@ -366,20 +366,7 @@
         </div>
     </div>
 
-    <!-- Tombol Export Laporan -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-body text-center">
-                    <a href="{{ route('manager.export.pdf') }}" class="btn btn-danger rounded-pill px-4">
-                        <i class="fas fa-file-pdf me-2"></i> Export Laporan Lengkap
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-</div>
+  
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
