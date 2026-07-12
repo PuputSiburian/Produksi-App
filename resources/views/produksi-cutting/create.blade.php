@@ -1,8 +1,4 @@
-﻿@extends(
-Auth::user()->role=='manager'
-? 'layouts.manager'
-: 'layouts.app'
-)
+﻿@extends('layouts.app')
 
 @section('content')
 <div class="container">
@@ -14,24 +10,20 @@ Auth::user()->role=='manager'
                 </div>
                 <div class="card-body">
                     
-                    <!-- TAMPILKAN ERROR SESSION (untuk validasi reject > qty) -->
                     @if(session('error'))
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <div class="alert alert-danger">
                             <i class="fas fa-exclamation-triangle me-2"></i> {{ session('error') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     @endif
 
-                    <!-- TAMPILKAN ERROR VALIDASI DEFAULT -->
                     @if($errors->any())
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <strong><i class="fas fa-exclamation-triangle me-2"></i> Terjadi Kesalahan!</strong>
+                        <div class="alert alert-danger">
+                            <strong>Terjadi Kesalahan!</strong>
                             <ul class="mb-0 mt-2">
                                 @foreach($errors->all() as $error)
                                     <li>{{ $error }}</li>
                                 @endforeach
                             </ul>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     @endif
 
@@ -42,7 +34,7 @@ Auth::user()->role=='manager'
                             <!-- TANGGAL -->
                             <div class="col-md-6 mb-3">
                                 <label for="tanggal" class="form-label">Tanggal <span class="text-danger">*</span></label>
-                                <input type="date" name="tanggal" id="tanggal" class="form-control @error('tanggal') is-invalid @enderror" value="{{ old('tanggal') }}" required>
+                                <input type="date" name="tanggal" id="tanggal" class="form-control @error('tanggal') is-invalid @enderror" value="{{ old('tanggal', date('Y-m-d')) }}" required>
                                 @error('tanggal')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -83,7 +75,8 @@ Auth::user()->role=='manager'
                                     @foreach($produk as $item)
                                         <option value="{{ $item->nama_produk }}" 
                                             data-part="{{ $item->part_number }}" 
-                                            data-target="{{ $item->target_standar }}"
+                                            data-target="{{ $item->target_standar ?? 0 }}"
+                                            data-kode="{{ $item->kode_produk }}"
                                             {{ old('produk') == $item->nama_produk ? 'selected' : '' }}>
                                             {{ $item->kode_produk }} - {{ $item->nama_produk }}
                                         </option>
@@ -103,7 +96,7 @@ Auth::user()->role=='manager'
                                 @enderror
                             </div>
 
-                            <!-- PART NUMBER - OTOMATIS (READONLY) -->
+                            <!-- PART NUMBER -->
                             <div class="col-md-6 mb-3">
                                 <label for="part_number" class="form-label">Part Number <span class="text-danger">*</span></label>
                                 <input type="text" name="part_number" id="part_number" class="form-control @error('part_number') is-invalid @enderror" value="{{ old('part_number') }}" required readonly style="background-color:#e9ecef">
@@ -122,7 +115,7 @@ Auth::user()->role=='manager'
                                 @enderror
                             </div>
 
-                            <!-- TARGET - OTOMATIS (READONLY) -->
+                            <!-- TARGET -->
                             <div class="col-md-4 mb-3">
                                 <label for="target" class="form-label">Target <span class="text-danger">*</span></label>
                                 <input type="number" name="target" id="target" class="form-control @error('target') is-invalid @enderror" value="{{ old('target') }}" required readonly style="background-color:#e9ecef">
@@ -135,7 +128,7 @@ Auth::user()->role=='manager'
                             <!-- QUANTITY (QTY) -->
                             <div class="col-md-4 mb-3">
                                 <label for="qty" class="form-label">Quantity (Qty) <span class="text-danger">*</span></label>
-                                <input type="number" name="qty" id="qty" class="form-control @error('qty') is-invalid @enderror" value="{{ old('qty') }}" required>
+                                <input type="number" name="qty" id="qty" class="form-control @error('qty') is-invalid @enderror" value="{{ old('qty') }}" required min="0">
                                 <small class="text-muted">Jumlah produksi aktual</small>
                                 @error('qty')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -145,7 +138,7 @@ Auth::user()->role=='manager'
                             <!-- REJECT -->
                             <div class="col-md-4 mb-3">
                                 <label for="reject" class="form-label">Reject</label>
-                                <input type="number" name="reject" id="reject" class="form-control @error('reject') is-invalid @enderror" value="{{ old('reject', 0) }}">
+                                <input type="number" name="reject" id="reject" class="form-control @error('reject') is-invalid @enderror" value="{{ old('reject', 0) }}" min="0">
                                 <small class="text-danger"><i class="fas fa-info-circle me-1"></i> Reject tidak boleh lebih besar dari QTY</small>
                                 @error('reject')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -155,7 +148,7 @@ Auth::user()->role=='manager'
                             <!-- KETERANGAN -->
                             <div class="col-12 mb-3">
                                 <label for="keterangan" class="form-label">Keterangan</label>
-                                <textarea name="keterangan" id="keterangan" class="form-control @error('keterangan') is-invalid @enderror" rows="3" placeholder="Catatan tambahan jika ada (contoh: reject karena, downtime karena, dll)">{{ old('keterangan') }}</textarea>
+                                <textarea name="keterangan" id="keterangan" class="form-control @error('keterangan') is-invalid @enderror" rows="3">{{ old('keterangan') }}</textarea>
                                 @error('keterangan')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -163,8 +156,12 @@ Auth::user()->role=='manager'
                         </div>
 
                         <div class="mt-3">
-                            <button type="submit" class="btn btn-primary">Simpan</button>
-                            <a href="{{ route('produksi-cutting.index') }}" class="btn btn-secondary">Batal</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Simpan
+                            </button>
+                            <a href="{{ route('produksi-cutting.index') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Batal
+                            </a>
                         </div>
                     </form>
                 </div>
@@ -173,23 +170,22 @@ Auth::user()->role=='manager'
     </div>
 </div>
 
-<!-- SCRIPT UNTUK OTOMATIS PART NUMBER & TARGET -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const produkSelect = document.getElementById('produk');
-        const partNumberInput = document.getElementById('part_number');
-        const targetInput = document.getElementById('target');
-        
-        if (produkSelect) {
-            produkSelect.addEventListener('change', function() {
-                const selectedOption = this.options[this.selectedIndex];
-                const partNumber = selectedOption.getAttribute('data-part') || '';
-                const target = selectedOption.getAttribute('data-target') || 0;
-                
-                partNumberInput.value = partNumber;
-                targetInput.value = target;
-            });
-        }
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    const produkSelect = document.getElementById('produk');
+    const partNumberInput = document.getElementById('part_number');
+    const targetInput = document.getElementById('target');
+    
+    if (produkSelect) {
+        produkSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const partNumber = selectedOption.getAttribute('data-part') || '';
+            const target = selectedOption.getAttribute('data-target') || 0;
+            
+            partNumberInput.value = partNumber;
+            targetInput.value = target;
+        });
+    }
+});
 </script>
 @endsection

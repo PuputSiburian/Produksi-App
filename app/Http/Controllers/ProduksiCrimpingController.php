@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProduksiCrimping;
-use App\Models\produksi;
+use App\Models\produksi;  // 🔥 PAKAI produksi (bukan produk)
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 
 class ProduksiCrimpingController extends Controller
 {
@@ -13,7 +14,7 @@ class ProduksiCrimpingController extends Controller
     {
         $user = auth()->user();
         
-        if ($user->isOperator()) {
+        if ($user->isOperatorCrimping()) {
             $produksiCrimpings = ProduksiCrimping::where('user_id', $user->id)->latest()->paginate(10);
         } else {
             $produksiCrimpings = ProduksiCrimping::latest()->paginate(10);
@@ -22,230 +23,299 @@ class ProduksiCrimpingController extends Controller
         return view('produksi-crimping.index', compact('produksiCrimpings'));
     }
 
-    // CREATE - Menampilkan form tambah data (DENGAN DROPDOWN PRODUK)
     public function create()
     {
-        // Ambil data produk untuk stasiun Crimping
-        $produk = produksi::where('stasiun', 'Crimping')
-                          ->where('status', 'Aktif')
-                          ->get();
-        
-        return view('produksi-crimping.create', compact('produk'));
+        try {
+            // 🔥 PAKAI produksi
+            $produk = produksi::where('stasiun', 'Crimping')
+                            ->where('status', 'Aktif')
+                            ->select('id', 'kode_produk', 'nama_produk', 'part_number', 'target_standar')
+                            ->get();
+            
+            // 🔥 CEK DATA PRODUK
+            if ($produk->isEmpty()) {
+                // Tambahkan data produk default
+                produksi::create([
+                    'kode_produk' => 'PRD-CRM-001',
+                    'nama_produk' => 'Produk Crimping A',
+                    'part_number' => 'PART-CRM-001',
+                    'stasiun' => 'Crimping',
+                    'target_standar' => 1000,
+                    'status' => 'Aktif'
+                ]);
+                
+                $produk = produksi::where('stasiun', 'Crimping')
+                                ->where('status', 'Aktif')
+                                ->select('id', 'kode_produk', 'nama_produk', 'part_number', 'target_standar')
+                                ->get();
+            }
+            
+            return view('produksi-crimping.create', compact('produk'));
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal load form: ' . $e->getMessage());
+        }
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'tanggal' => 'required|date',
-            'line_crimping' => 'required|string',
-            'nama_operator' => 'required|string',
-            'produk' => 'required|string',
-            'part_number' => 'required|string',
-            'lot_produk' => 'nullable|string',
-            'warna' => 'nullable|string',
-            'target' => 'required|integer|min:1',
-            'qty' => 'required|integer|min:0',
-            'reject' => 'nullable|integer|min:0',
-            'keterangan' => 'nullable|string',
-        ]);
+        try {
+            $validated = $request->validate([
+                'tanggal' => 'required|date',
+                'line_crimping' => 'required|string|max:255',
+                'nama_operator' => 'required|string|max:255',
+                'produk' => 'required|string|max:255',
+                'lot_produk' => 'nullable|string|max:255',
+                'part_number' => 'required|string|max:255',
+                'warna' => 'required|string|max:255',
+                'target' => 'required|integer|min:1',
+                'qty' => 'required|integer|min:0',
+                'reject' => 'nullable|integer|min:0',
+                'keterangan' => 'nullable|string',  // 🔥 PASTIKAN ADA
+            ]);
 
-        // Set nilai default 0 untuk reject jika null
-        $validated['reject'] = $validated['reject'] ?? 0;
+            $validated['reject'] = $validated['reject'] ?? 0;
 
-        // VALIDASI: Reject tidak boleh lebih dari QTY
-        $reject = $validated['reject'];
-        $qty = $validated['qty'];
-        
-        if ($reject > $qty) {
+            if ($validated['reject'] > $validated['qty']) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Jumlah Reject tidak boleh lebih besar dari Jumlah Produksi (QTY)!');
+            }
+
+            $validated['user_id'] = auth()->id();
+
+            $produksiCrimping = ProduksiCrimping::create($validated);
+
+            return redirect()->route('produksi-crimping.index')
+                ->with('success', 'Data produksi crimping berhasil ditambahkan!');
+                
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Jumlah Reject tidak boleh lebih besar dari Jumlah Produksi (QTY)!');
+                ->withErrors($e->validator);
+                
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Gagal menyimpan data: ' . $e->getMessage());
         }
-
-        $validated['user_id'] = auth()->id();
-        
-        // CREATE DATA
-        $produksiCrimping = ProduksiCrimping::create($validated);
-        
-        // CATAT LOG CREATE
-        $produksiCrimping->logActivity('CREATE', null, $produksiCrimping->toArray());
-
-        return redirect()->route('produksi-crimping.index')
-            ->with('success', 'Data produksi crimping berhasil ditambahkan');
     }
 
-    // EDIT - Menampilkan form edit data (DENGAN DROPDOWN PRODUK)
     public function edit(ProduksiCrimping $produksiCrimping)
     {
-        // Ambil data produk untuk stasiun Crimping
-        $produk = produksi::where('stasiun', 'Crimping')
-                          ->where('status', 'Aktif')
-                          ->get();
-        
-        return view('produksi-crimping.edit', compact('produksiCrimping', 'produk'));
+        try {
+            $user = auth()->user();
+            if ($user->isOperatorCrimping() && $produksiCrimping->user_id != $user->id) {
+                return redirect()->route('produksi-crimping.index')
+                    ->with('error', 'Anda hanya bisa mengedit data sendiri!');
+            }
+            
+            // 🔥 PAKAI produksi
+            $produk = produksi::where('stasiun', 'Crimping')
+                            ->where('status', 'Aktif')
+                            ->select('id', 'kode_produk', 'nama_produk', 'part_number', 'target_standar')
+                            ->get();
+            
+            return view('produksi-crimping.edit', compact('produksiCrimping', 'produk'));
+            
+        } catch (\Exception $e) {
+            return redirect()->route('produksi-crimping.index')
+                ->with('error', 'Gagal load form edit: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request, ProduksiCrimping $produksiCrimping)
     {
-        $validated = $request->validate([
-            'tanggal' => 'required|date',
-            'line_crimping' => 'required|string',
-            'nama_operator' => 'required|string',
-            'produk' => 'required|string',
-            'part_number' => 'required|string',
-            'lot_produk' => 'nullable|string',
-            'warna' => 'nullable|string',
-            'target' => 'required|integer|min:1',
-            'qty' => 'required|integer|min:0',
-            'reject' => 'nullable|integer|min:0',
-            'keterangan' => 'nullable|string',
-        ]);
+        try {
+            $user = auth()->user();
+            if ($user->isOperatorCrimping() && $produksiCrimping->user_id != $user->id) {
+                return redirect()->route('produksi-crimping.index')
+                    ->with('error', 'Anda hanya bisa mengedit data sendiri!');
+            }
+            
+            $validated = $request->validate([
+                'tanggal' => 'required|date',
+                'line_crimping' => 'required|string|max:255',
+                'nama_operator' => 'required|string|max:255',
+                'produk' => 'required|string|max:255',
+                'lot_produk' => 'nullable|string|max:255',
+                'part_number' => 'required|string|max:255',
+                'warna' => 'required|string|max:255',
+                'target' => 'required|integer|min:1',
+                'qty' => 'required|integer|min:0',
+                'reject' => 'nullable|integer|min:0',
+                'keterangan' => 'nullable|string',
+            ]);
 
-        // Set nilai default 0 untuk reject jika null
-        $validated['reject'] = $validated['reject'] ?? 0;
+            $validated['reject'] = $validated['reject'] ?? 0;
 
-        // VALIDASI: Reject tidak boleh lebih dari QTY
-        $reject = $validated['reject'];
-        $qty = $validated['qty'];
-        
-        if ($reject > $qty) {
+            if ($validated['reject'] > $validated['qty']) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Jumlah Reject tidak boleh lebih besar dari Jumlah Produksi (QTY)!');
+            }
+
+            $produksiCrimping->update($validated);
+
+            return redirect()->route('produksi-crimping.index')
+                ->with('success', 'Data produksi crimping berhasil diupdate!');
+                
+        } catch (\Exception $e) {
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Jumlah Reject tidak boleh lebih besar dari Jumlah Produksi (QTY)!');
+                ->with('error', 'Gagal mengupdate data: ' . $e->getMessage());
         }
-
-        // SIMPAN DATA LAMA SEBELUM UPDATE
-        $oldData = $produksiCrimping->toArray();
-        
-        // UPDATE DATA
-        $produksiCrimping->update($validated);
-        
-        // SIMPAN DATA BARU SETELAH UPDATE
-        $newData = $produksiCrimping->fresh()->toArray();
-        
-        // CATAT LOG UPDATE
-        $produksiCrimping->logActivity('UPDATE', $oldData, $newData);
-
-        return redirect()->route('produksi-crimping.index')
-            ->with('success', 'Data produksi crimping berhasil diupdate');
     }
 
     public function destroy(ProduksiCrimping $produksiCrimping)
     {
-        // SIMPAN DATA LAMA SEBELUM DIHAPUS
-        $oldData = $produksiCrimping->toArray();
-        
-        // CATAT LOG DELETE
-        $produksiCrimping->logActivity('DELETE', $oldData, null);
-        
-        // HAPUS DATA
-        $produksiCrimping->delete();
-        
-        return redirect()->route('produksi-crimping.index')
-            ->with('success', 'Data produksi crimping berhasil dihapus');
+        try {
+            $user = auth()->user();
+            if (!$user->isAdmin() && !$user->isManager()) {
+                return redirect()->route('produksi-crimping.index')
+                    ->with('error', 'Hanya Admin atau Manager yang bisa menghapus data!');
+            }
+            
+            $produksiCrimping->delete();
+
+            return redirect()->route('produksi-crimping.index')
+                ->with('success', 'Data produksi crimping berhasil dihapus!');
+                
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', 'Gagal menghapus data: ' . $e->getMessage());
+        }
     }
 
     public function show(ProduksiCrimping $produksiCrimping)
     {
-        return view('produksi-crimping.show', compact('produksiCrimping'));
+        try {
+            return view('produksi-crimping.show', compact('produksiCrimping'));
+            
+        } catch (\Exception $e) {
+            return redirect()->route('produksi-crimping.index')
+                ->with('error', 'Gagal load data: ' . $e->getMessage());
+        }
     }
 
     public function exportPdf()
     {
-        $data = ProduksiCrimping::latest()->get();
-        $pdf = Pdf::loadView('exports.produksi-crimping-pdf', compact('data'));
-        $pdf->setPaper('A4', 'landscape');
-        return $pdf->download('laporan-crimping-' . date('Y-m-d') . '.pdf');
-    }
-    
-    public function history(ProduksiCrimping $produksiCrimping)
-    {
-        $activities = $produksiCrimping->activities()->paginate(20);
-        return view('produksi-crimping.history', compact('produksiCrimping', 'activities'));
+        try {
+            $data = ProduksiCrimping::latest()->get();
+            
+            if ($data->isEmpty()) {
+                return redirect()->back()->with('error', 'Tidak ada data!');
+            }
+            
+            $tanggal_mulai = $data->last()->tanggal ?? now();
+            $tanggal_akhir = $data->first()->tanggal ?? now();
+            
+            $pdf = Pdf::loadView('exports.produksi-crimping-pdf', [
+                'data' => $data,
+                'tanggal_mulai' => $tanggal_mulai,
+                'tanggal_akhir' => $tanggal_akhir,
+                'tahun' => date('Y'),
+                'bulan' => date('m'),
+                'minggu' => 'Semua Data',
+                'totalTarget' => $data->sum('target'),
+                'totalQty' => $data->sum('qty'),
+                'totalReject' => $data->sum('reject'),
+                'totalHasil' => $data->sum('qty') - $data->sum('reject'),
+                'efisiensi' => $data->sum('target') > 0 ? round(($data->sum('qty') / $data->sum('target')) * 100, 2) : 0
+            ]);
+            
+            $pdf->setPaper('A4', 'landscape');
+            return $pdf->download('laporan-crimping-' . date('Y-m-d') . '.pdf');
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal export PDF: ' . $e->getMessage());
+        }
     }
 
-    // ========== EXPORT PDF MINGGUAN (WEEKLY REPORT) ==========
-    
-    /**
-     * Export PDF per Minggu - Halaman Filter (GET)
-     */
-    public function exportWeekly(Request $request)
+    public function history(ProduksiCrimping $produksiCrimping)
     {
-        $tahun = $request->get('tahun', date('Y'));
-        $bulan = $request->get('bulan', date('m'));
-        $minggu = $request->get('minggu', 1);
-        
-        // Hitung tanggal mulai dan akhir minggu
-        $tanggal_mulai = $this->getStartDate($tahun, $bulan, $minggu);
-        $tanggal_akhir = $this->getEndDate($tahun, $bulan, $minggu);
-        
-        // Ambil data sesuai periode
-        $data = ProduksiCrimping::whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
-                                ->orderBy('tanggal', 'desc')
-                                ->get();
-        
-        return view('exports.produksi-crimping-pdf', compact('data', 'tanggal_mulai', 'tanggal_akhir', 'tahun', 'bulan', 'minggu'));
+        try {
+            $activities = $produksiCrimping->activities()->paginate(20);
+            return view('produksi-crimping.history', compact('produksiCrimping', 'activities'));
+            
+        } catch (\Exception $e) {
+            return redirect()->route('produksi-crimping.index')
+                ->with('error', 'Gagal load history: ' . $e->getMessage());
+        }
+    }
+
+    // ========== EXPORT PDF MINGGUAN ==========
+    
+    public function exportWeekly()
+    {
+        return view('produksi-crimping.export-weekly');
     }
     
-    /**
-     * Download PDF per Minggu (POST)
-     */
     public function downloadWeeklyPDF(Request $request)
     {
-        $request->validate([
-            'tahun' => 'required|integer',
-            'bulan' => 'required|integer|between:1,12',
-            'minggu' => 'required|integer|between:1,5'
-        ]);
-        
-        $tahun = $request->tahun;
-        $bulan = $request->bulan;
-        $minggu = $request->minggu;
-        
-        $tanggal_mulai = $this->getStartDate($tahun, $bulan, $minggu);
-        $tanggal_akhir = $this->getEndDate($tahun, $bulan, $minggu);
-        
-        $data = ProduksiCrimping::whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
-                                ->orderBy('tanggal', 'desc')
-                                ->get();
-        
-        $pdf = Pdf::loadView('exports.produksi-crimping-pdf', compact('data', 'tanggal_mulai', 'tanggal_akhir', 'tahun', 'bulan', 'minggu'));
-        $pdf->setPaper('A4', 'landscape');
-        
-        $nama_bulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
-                       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-        
-        session()->flash('success', "Laporan mingguan Crimping berhasil di-generate! Periode: " . 
-                         \Carbon\Carbon::parse($tanggal_mulai)->format('d/m/Y') . " s/d " . 
-                         \Carbon\Carbon::parse($tanggal_akhir)->format('d/m/Y'));
-        
-        return $pdf->download('laporan_crimping_minggu_' . $minggu . '_' . $nama_bulan[(int)$bulan] . '_' . $tahun . '.pdf');
+        try {
+            ini_set('memory_limit', '4096M');
+            set_time_limit(1200);
+            
+            $tahun = $request->get('tahun', date('Y'));
+            $bulan = $request->get('bulan', date('m'));
+            $minggu = $request->get('minggu', 1);
+            
+            $tanggal_mulai = $this->getStartDate($tahun, $bulan, $minggu);
+            $tanggal_akhir = $this->getEndDate($tahun, $bulan, $minggu);
+            
+            $data = ProduksiCrimping::whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
+                                    ->orderBy('tanggal', 'desc')
+                                    ->get();
+            
+            if ($data->isEmpty()) {
+                return redirect()->back()->with('error', 'Tidak ada data!');
+            }
+            
+            $pdf = Pdf::loadView('exports.produksi-crimping-pdf', [
+                'data' => $data,
+                'tanggal_mulai' => $tanggal_mulai,
+                'tanggal_akhir' => $tanggal_akhir,
+                'tahun' => $tahun,
+                'bulan' => $bulan,
+                'minggu' => $minggu,
+                'totalTarget' => $data->sum('target'),
+                'totalQty' => $data->sum('qty'),
+                'totalReject' => $data->sum('reject'),
+                'totalHasil' => $data->sum('qty') - $data->sum('reject'),
+                'efisiensi' => $data->sum('target') > 0 ? round(($data->sum('qty') / $data->sum('target')) * 100, 2) : 0
+            ]);
+            
+            $pdf->setPaper('A4', 'landscape');
+            
+            return $pdf->download('laporan-crimping-mingguan.pdf');
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal download PDF: ' . $e->getMessage());
+        }
     }
     
-    /**
-     * Hitung tanggal mulai minggu
-     */
     private function getStartDate($tahun, $bulan, $minggu)
     {
-        $firstDay = date("Y-m-01", strtotime("$tahun-$bulan-01"));
-        $startDate = date("Y-m-d", strtotime("$firstDay +" . (($minggu - 1) * 7) . " days"));
-        return $startDate;
+        $date = Carbon::create($tahun, $bulan, 1);
+        $startOfMonth = $date->copy()->startOfMonth();
+        
+        $firstSunday = $startOfMonth->copy()->startOfWeek();
+        if ($firstSunday->month < $bulan) {
+            $firstSunday->addWeek();
+        }
+        $startDate = $firstSunday->copy()->addWeeks($minggu - 1);
+        return $startDate->format('Y-m-d');
     }
     
-    /**
-     * Hitung tanggal akhir minggu
-     */
     private function getEndDate($tahun, $bulan, $minggu)
     {
-        $startDate = $this->getStartDate($tahun, $bulan, $minggu);
-        $endDate = date("Y-m-d", strtotime("$startDate +6 days"));
-        $lastDayOfMonth = date("Y-m-t", strtotime("$tahun-$bulan-01"));
-        
+        $startDate = Carbon::parse($this->getStartDate($tahun, $bulan, $minggu));
+        $endDate = $startDate->copy()->addDays(6);
+        $lastDayOfMonth = Carbon::create($tahun, $bulan, 1)->endOfMonth();
         if ($endDate > $lastDayOfMonth) {
             $endDate = $lastDayOfMonth;
         }
-        return $endDate;
+        return $endDate->format('Y-m-d');
     }
-
-    // ========== END EXPORT PDF MINGGUAN ==========
 }

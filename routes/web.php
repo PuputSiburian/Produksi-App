@@ -70,17 +70,17 @@ Route::middleware(['auth'])->group(function () {
     
     // ========== EXPORT MINGGUAN (WEEKLY REPORT) - PRODUKSI LINE ==========
     Route::get('/produksi-line-mingguan', [ProduksiLineController::class, 'exportWeekly'])->name('produksi-line.mingguan');
-    Route::post('/produksi-line-mingguan-download', [ProduksiLineController::class, 'downloadWeeklyPDF'])->name('produksi-line.mingguan.download');
+    Route::get('/produksi-line-mingguan-download', [ProduksiLineController::class, 'downloadWeeklyPDF'])->name('produksi-line.mingguan.download');
     // ========== END EXPORT MINGGUAN LINE ==========
     
     // ========== EXPORT MINGGUAN (WEEKLY REPORT) - PRODUKSI CUTTING ==========
     Route::get('/produksi-cutting-mingguan', [ProduksiCuttingController::class, 'exportWeekly'])->name('produksi-cutting.mingguan');
-    Route::post('/produksi-cutting-mingguan-download', [ProduksiCuttingController::class, 'downloadWeeklyPDF'])->name('produksi-cutting.mingguan.download');
+    Route::get('/produksi-cutting-mingguan-download', [ProduksiCuttingController::class, 'downloadWeeklyPDF'])->name('produksi-cutting.mingguan.download');
     // ========== END EXPORT MINGGUAN CUTTING ==========
     
     // ========== EXPORT MINGGUAN (WEEKLY REPORT) - PRODUKSI CRIMPING ==========
     Route::get('/produksi-crimping-mingguan', [ProduksiCrimpingController::class, 'exportWeekly'])->name('produksi-crimping.mingguan');
-    Route::post('/produksi-crimping-mingguan-download', [ProduksiCrimpingController::class, 'downloadWeeklyPDF'])->name('produksi-crimping.mingguan.download');
+    Route::get('/produksi-crimping-mingguan-download', [ProduksiCrimpingController::class, 'downloadWeeklyPDF'])->name('produksi-crimping.mingguan.download');
     // ========== END EXPORT MINGGUAN CRIMPING ==========
     
     // MESIN - CRUD lengkap dengan resource

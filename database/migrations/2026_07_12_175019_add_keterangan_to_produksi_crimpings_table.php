@@ -4,19 +4,19 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
+class AddKeteranganToProduksiCrimpingsTable extends Migration
 {
-    public function up(): void
+    public function up()
     {
         Schema::table('produksi_crimpings', function (Blueprint $table) {
-            $table->string('warna')->nullable()->after('lot_produk');
+            $table->text('keterangan')->nullable()->after('reject');
         });
     }
 
-    public function down(): void
+    public function down()
     {
         Schema::table('produksi_crimpings', function (Blueprint $table) {
-            $table->dropColumn('warna');
+            $table->dropColumn('keterangan');
         });
     }
-};
+}

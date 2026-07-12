@@ -19,10 +19,17 @@ class ProfileController extends Controller
     {
         $user = $request->user();
         
-        // Hitung total produksi untuk dashboard profile
-        $totalCutting = ProduksiCutting::where('user_id', $user->id)->count();
-        $totalCrimping = ProduksiCrimping::where('user_id', $user->id)->count();
-        $totalLine = ProduksiLine::where('user_id', $user->id)->count();
+        // 🔥 PERBAIKI: Admin dan Manager melihat SEMUA data
+        if ($user->isAdmin() || $user->isManager()) {
+            $totalCutting = ProduksiCutting::count();
+            $totalCrimping = ProduksiCrimping::count();
+            $totalLine = ProduksiLine::count();
+        } else {
+            // Operator hanya melihat datanya sendiri
+            $totalCutting = ProduksiCutting::where('user_id', $user->id)->count();
+            $totalCrimping = ProduksiCrimping::where('user_id', $user->id)->count();
+            $totalLine = ProduksiLine::where('user_id', $user->id)->count();
+        }
         
         return view('profile.edit', [
             'user' => $user,

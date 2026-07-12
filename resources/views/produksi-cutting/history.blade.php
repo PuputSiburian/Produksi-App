@@ -1,102 +1,117 @@
-@extends(
-Auth::user()->role=='manager'
-? 'layouts.manager'
-: 'layouts.app'
-)
-
-@section('title', 'Riwayat Perubahan Data')
+@extends('layouts.app')
 
 @section('content')
-<div class="container-fluid">
-    <div class="card shadow-sm border-0 rounded-3">
-        <div class="card-header bg-white py-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold text-dark">
-                    <i class="fas fa-history me-2 text-info"></i> Riwayat Perubahan Data
-                </h5>
-                <a href="{{ url()->previous() }}" class="btn btn-secondary btn-sm rounded-pill px-3">
-                    <i class="fas fa-arrow-left me-1"></i> Kembali
-                </a>
-            </div>
-        </div>
-        <div class="card-body">
-            <!-- Informasi Record -->
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Informasi Record:</strong><br>
-                ID: {{ $produksiCutting->id }} | 
-                Tanggal: {{ \Carbon\Carbon::parse($produksiCutting->tanggal)->format('d/m/Y') }} | 
-                Line Cutting: {{ $produksiCutting->line_cutting }}
-            </div>
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4>
+                        <i class="fas fa-history me-2"></i> 
+                        Riwayat Perubahan - Produksi Cutting
+                    </h4>
+                    <small class="text-muted">
+                        Data ID: {{ $produksiCutting->id }} | 
+                        Tanggal: {{ \Carbon\Carbon::parse($produksiCutting->tanggal)->format('d-m-Y') }} |
+                        Operator: {{ $produksiCutting->nama_operator }}
+                    </small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead style="background: linear-gradient(135deg, #1a237e, #283593); color: white;">
+                                <tr>
+                                    <th>No</th>
+                                    <th>Waktu</th>
+                                    <th>User</th>
+                                    <th>Aksi</th>
+                                    <th>Data Lama</th>
+                                    <th>Data Baru</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($activities as $index => $activity)
+                                <tr>
+                                    <td class="text-center">{{ $loop->iteration }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($activity->created_at)->format('d-m-Y H:i:s') }}</td>
+                                    <td>
+                                        <strong>{{ $activity->user_name }}</strong>
+                                        @if($activity->user)
+                                            <br><small class="text-muted">{{ $activity->user->email }}</small>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @php
+                                            $badgeColor = match($activity->action) {
+                                                'CREATE' => 'success',
+                                                'UPDATE' => 'warning',
+                                                'DELETE' => 'danger',
+                                                default => 'secondary'
+                                            };
+                                            $icon = match($activity->action) {
+                                                'CREATE' => 'fa-plus-circle',
+                                                'UPDATE' => 'fa-edit',
+                                                'DELETE' => 'fa-trash-alt',
+                                                default => 'fa-info-circle'
+                                            };
+                                        @endphp
+                                        <span class="badge bg-{{ $badgeColor }}">
+                                            <i class="fas {{ $icon }}"></i> {{ $activity->action }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if($activity->old_data)
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#oldData{{ $index }}">
+                                                <i class="fas fa-eye"></i> Lihat
+                                            </button>
+                                            <div class="collapse mt-2" id="oldData{{ $index }}">
+                                                <pre class="bg-light p-2 rounded" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
+                                                    {{ json_encode(json_decode($activity->old_data), JSON_PRETTY_PRINT) }}
+                                                </pre>
+                                            </div>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($activity->new_data)
+                                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#newData{{ $index }}">
+                                                <i class="fas fa-eye"></i> Lihat
+                                            </button>
+                                            <div class="collapse mt-2" id="newData{{ $index }}">
+                                                <pre class="bg-light p-2 rounded" style="font-size: 11px; max-height: 200px; overflow-y: auto;">
+                                                    {{ json_encode(json_decode($activity->new_data), JSON_PRETTY_PRINT) }}
+                                                </pre>
+                                            </div>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                    <td><code>{{ $activity->ip_address ?? '-' }}</code></td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">
+                                        <i class="fas fa-info-circle me-2"></i> 
+                                        Belum ada riwayat perubahan untuk data ini
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
 
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover">
-                    <thead class="table-light">
-                        <tr>
-                            <th width="5%">No</th>
-                            <th width="20%">Waktu</th>
-                            <th width="15%">User</th>
-                            <th width="10%">Aksi</th>
-                            <th width="35%">Perubahan</th>
-                            <th width="15%">IP Address</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($activities as $index => $activity)
-                        <tr>
-                            <td>{{ $activities->firstItem() + $index }}</td>
-                            <td>{{ \Carbon\Carbon::parse($activity->created_at)->format('d/m/Y H:i:s') }}</td>
-                            <td>{{ $activity->user->name ?? 'Unknown' }}</td>
-                            <td>
-                                @if($activity->action == 'CREATE')
-                                    <span class="badge bg-success">TAMBAH</span>
-                                @elseif($activity->action == 'UPDATE')
-                                    <span class="badge bg-warning">EDIT</span>
-                                @elseif($activity->action == 'DELETE')
-                                    <span class="badge bg-danger">HAPUS</span>
-                                @endif
-                            </td>
-                            <td>
-                                @if($activity->action == 'UPDATE')
-                                    @php
-                                        $old = json_decode($activity->old_data, true);
-                                        $new = json_decode($activity->new_data, true);
-                                        $changes = [];
-                                        if($old && $new) {
-                                            foreach($new as $key => $value) {
-                                                if(isset($old[$key]) && $old[$key] != $value && !in_array($key, ['id', 'user_id', 'created_at', 'updated_at'])) {
-                                                    $changes[] = "<strong>{$key}</strong>: {$old[$key]} → {$value}";
-                                                }
-                                            }
-                                        }
-                                    @endphp
-                                    @if(!empty($changes))
-                                        {!! implode('<br>', $changes) !!}
-                                    @else
-                                        Tidak ada perubahan signifikan
-                                    @endif
-                                @elseif($activity->action == 'CREATE')
-                                    Data baru ditambahkan
-                                @elseif($activity->action == 'DELETE')
-                                    Data dihapus
-                                @endif
-                            </td>
-                            <td>{{ $activity->ip_address ?? '-' }}</td>
-                        </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="text-center py-5">
-                                    <i class="fas fa-database fa-3x text-muted mb-3 d-block"></i>
-                                    <p class="text-muted mb-0">Belum ada riwayat perubahan</p>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                    <div class="d-flex justify-content-end mt-3">
+                        {{ $activities->links() }}
+                    </div>
 
-            <div class="mt-3">
-                {{ $activities->links() }}
+                    <div class="mt-3">
+                        <a href="{{ route('produksi-cutting.index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Kembali
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
