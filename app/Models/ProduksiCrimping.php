@@ -24,7 +24,8 @@ class ProduksiCrimping extends Model
         'qty',
         'reject',
         'keterangan',
-        'user_id'
+        'user_id',
+        'leader_name'   // 🔥 HANYA leader_name, SHIFT DIHAPUS
     ];
     
     public function user()

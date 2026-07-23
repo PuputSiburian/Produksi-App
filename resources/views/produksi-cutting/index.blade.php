@@ -32,19 +32,22 @@ Auth::user()->role=='manager'
                     <!-- TOMBOL DI ATAS TABEL -->
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <div>
-                            @if(Auth::user()->role == 'admin')  {{-- 🔥 HANYA ADMIN --}}
+                            @if(Auth::user()->role == 'admin')
                             <a href="{{ route('produksi-cutting.create') }}" class="btn btn-primary rounded-pill px-3" style="background: linear-gradient(45deg, #007bff, #00c6ff); border: none;">
                                 <i class="fas fa-plus me-1"></i> Tambah Data
                             </a>
                             @endif
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
-                            <a href="{{ route('produksi-cutting.export.pdf') }}" class="btn btn-danger rounded-pill px-3" style="background: linear-gradient(45deg, #dc3545, #ff6b6b); border: none;">
-                                <i class="fas fa-file-pdf me-1"></i> Export PDF
+                            {{-- 🔥 TOMBOL EXPORT LAPORAN (HARIAN & MINGGUAN) --}}
+                            <a href="{{ route('produksi-cutting.export.page') }}" class="btn btn-success rounded-pill px-3" style="background: linear-gradient(45deg, #28a745, #20c997); border: none;">
+                                <i class="fas fa-file-export me-1"></i> Export Laporan
                             </a>
-                            <button type="button" class="btn btn-info rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalMingguanCutting" style="background: linear-gradient(45deg, #17a2b8, #4dd0e1); border: none;">
-                                <i class="fas fa-calendar-week me-1"></i> Export Mingguan
-                            </button>
+                            {{-- 🔥 TOMBOL EXPORT SEMUA DATA --}}
+                            <a href="{{ route('produksi-cutting.export.pdf') }}" class="btn btn-danger rounded-pill px-3" style="background: linear-gradient(45deg, #dc3545, #ff6b6b); border: none;">
+                                <i class="fas fa-file-pdf me-1"></i> Export Semua
+                            </a>
+                            {{-- 🔥 HAPUS TOMBOL EXPORT MINGGUAN (SUDAH DIGABUNG DI EXPORT LAPORAN) --}}
                         </div>
                     </div>
 
@@ -118,7 +121,7 @@ Auth::user()->role=='manager'
                                     </td>
                                     <td class="text-center">
                                         <div class="d-flex justify-content-center gap-1 flex-wrap">
-                                            @if(Auth::user()->role == 'admin')  {{-- 🔥 HANYA ADMIN --}}
+                                            @if(Auth::user()->role == 'admin')
                                                 <a href="{{ route('produksi-cutting.edit', $item) }}" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1">
                                                     <i class="fas fa-edit"></i> Edit
                                                 </a>
@@ -168,73 +171,4 @@ Auth::user()->role=='manager'
         </div>
     </div>
 </div>
-
-<!-- MODAL EXPORT PDF MINGGUAN - CUTTING -->
-<div class="modal fade" id="modalMingguanCutting" tabindex="-1" aria-labelledby="modalMingguanCuttingLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="modalMingguanCuttingLabel">
-                    <i class="fas fa-calendar-week me-2 text-info"></i> Export Laporan Mingguan - Cutting
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ route('produksi-cutting.mingguan.download') }}" method="GET">
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i> Pilih tahun, bulan, dan minggu untuk mengekspor laporan produksi cutting.
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">📅 Pilih Tahun</label>
-                        <select name="tahun" class="form-control" required>
-                            @for($i = date('Y')-2; $i <= date('Y')+1; $i++)
-                                <option value="{{ $i }}" {{ date('Y') == $i ? 'selected' : '' }}>{{ $i }}</option>
-                            @endfor
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">📆 Pilih Bulan</label>
-                        <select name="bulan" class="form-control" required>
-                            @foreach(['Januari','Februari','Maret','April','Mei','Juni',
-                                      'Juli','Agustus','September','Oktober','November','Desember'] as $key => $bulanName)
-                                <option value="{{ $key+1 }}" {{ date('m') == $key+1 ? 'selected' : '' }}>
-                                    {{ $bulanName }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">📊 Pilih Minggu ke-</label>
-                        <select name="minggu" class="form-control" required>
-                            <option value="1">Minggu 1 (1-7)</option>
-                            <option value="2">Minggu 2 (8-14)</option>
-                            <option value="3">Minggu 3 (15-21)</option>
-                            <option value="4">Minggu 4 (22-28)</option>
-                            <option value="5">Minggu 5 (29-31)</option>
-                        </select>
-                        <small class="text-muted">* Laporan akan menampilkan data dalam periode minggu yang dipilih</small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-1"></i> Batal
-                    </button>
-                    <button type="submit" class="btn btn-info rounded-pill" id="btnExportMingguan">
-                        <i class="fas fa-file-pdf me-1"></i> Export PDF
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-    document.getElementById('btnExportMingguan')?.addEventListener('click', function() {
-        this.disabled = true;
-        this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Memproses...';
-    });
-</script>
 @endsection

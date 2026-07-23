@@ -63,25 +63,53 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/produksi-crimping', [ProduksiCrimpingController::class, 'index'])->name('produksi-crimping.index');
     Route::get('/produksi-line', [ProduksiLineController::class, 'index'])->name('produksi-line.index');
     
-    // Export PDF (Semua Data)
+    // ============================================================
+    // ========== EXPORT CUTTING ==========
+    // ============================================================
+    // Export Semua Data
     Route::get('/produksi-cutting/export/pdf', [ProduksiCuttingController::class, 'exportPdf'])->name('produksi-cutting.export.pdf');
-    Route::get('/produksi-crimping/export/pdf', [ProduksiCrimpingController::class, 'exportPdf'])->name('produksi-crimping.export.pdf');
-    Route::get('/produksi-line/export/pdf', [ProduksiLineController::class, 'exportPdf'])->name('produksi-line.export.pdf');
     
-    // ========== EXPORT MINGGUAN (WEEKLY REPORT) - PRODUKSI LINE ==========
-    Route::get('/produksi-line-mingguan', [ProduksiLineController::class, 'exportWeekly'])->name('produksi-line.mingguan');
-    Route::get('/produksi-line-mingguan-download', [ProduksiLineController::class, 'downloadWeeklyPDF'])->name('produksi-line.mingguan.download');
-    // ========== END EXPORT MINGGUAN LINE ==========
+    // Export Harian & Mingguan (Halaman Filter)
+    Route::get('/produksi-cutting/export', [ProduksiCuttingController::class, 'exportPage'])->name('produksi-cutting.export.page');
+    Route::get('/produksi-cutting/export/harian', [ProduksiCuttingController::class, 'exportHarian'])->name('produksi-cutting.export.harian');
+    Route::get('/produksi-cutting/export/mingguan', [ProduksiCuttingController::class, 'exportMingguan'])->name('produksi-cutting.export.mingguan');
     
-    // ========== EXPORT MINGGUAN (WEEKLY REPORT) - PRODUKSI CUTTING ==========
+    // Export Mingguan (Lama - untuk kompatibilitas)
     Route::get('/produksi-cutting-mingguan', [ProduksiCuttingController::class, 'exportWeekly'])->name('produksi-cutting.mingguan');
     Route::get('/produksi-cutting-mingguan-download', [ProduksiCuttingController::class, 'downloadWeeklyPDF'])->name('produksi-cutting.mingguan.download');
-    // ========== END EXPORT MINGGUAN CUTTING ==========
+    // ========== END EXPORT CUTTING ==========
     
-    // ========== EXPORT MINGGUAN (WEEKLY REPORT) - PRODUKSI CRIMPING ==========
+    // ============================================================
+    // ========== EXPORT CRIMPING ==========
+    // ============================================================
+    // Export Semua Data
+    Route::get('/produksi-crimping/export/pdf', [ProduksiCrimpingController::class, 'exportPdf'])->name('produksi-crimping.export.pdf');
+    
+    // Export Harian & Mingguan (Halaman Filter)
+    Route::get('/produksi-crimping/export', [ProduksiCrimpingController::class, 'exportPage'])->name('produksi-crimping.export.page');
+    Route::get('/produksi-crimping/export/harian', [ProduksiCrimpingController::class, 'exportHarian'])->name('produksi-crimping.export.harian');
+    Route::get('/produksi-crimping/export/mingguan', [ProduksiCrimpingController::class, 'exportMingguan'])->name('produksi-crimping.export.mingguan');
+    
+    // Export Mingguan (Lama - untuk kompatibilitas)
     Route::get('/produksi-crimping-mingguan', [ProduksiCrimpingController::class, 'exportWeekly'])->name('produksi-crimping.mingguan');
     Route::get('/produksi-crimping-mingguan-download', [ProduksiCrimpingController::class, 'downloadWeeklyPDF'])->name('produksi-crimping.mingguan.download');
-    // ========== END EXPORT MINGGUAN CRIMPING ==========
+    // ========== END EXPORT CRIMPING ==========
+    
+    // ============================================================
+    // ========== EXPORT LINE ==========
+    // ============================================================
+    // Export Semua Data
+    Route::get('/produksi-line/export/pdf', [ProduksiLineController::class, 'exportPdf'])->name('produksi-line.export.pdf');
+    
+    // Export Harian & Mingguan (Halaman Filter)
+    Route::get('/produksi-line/export', [ProduksiLineController::class, 'exportPage'])->name('produksi-line.export.page');
+    Route::get('/produksi-line/export/harian', [ProduksiLineController::class, 'exportHarian'])->name('produksi-line.export.harian');
+    Route::get('/produksi-line/export/mingguan', [ProduksiLineController::class, 'exportMingguan'])->name('produksi-line.export.mingguan');
+    
+    // Export Mingguan (Lama - untuk kompatibilitas)
+    Route::get('/produksi-line-mingguan', [ProduksiLineController::class, 'exportWeekly'])->name('produksi-line.mingguan');
+    Route::get('/produksi-line-mingguan-download', [ProduksiLineController::class, 'downloadWeeklyPDF'])->name('produksi-line.mingguan.download');
+    // ========== END EXPORT LINE ==========
     
     // MESIN - CRUD lengkap dengan resource
     Route::resource('mesin', MesinController::class);

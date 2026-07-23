@@ -16,7 +16,11 @@
         <div class="card-body">
             <div class="alert alert-info mb-3">
                 <strong>Informasi Record:</strong><br>
-                ID: {{ $produksiLine->id }} | Tanggal: {{ $produksiLine->tanggal }} | Proses: {{ $produksiLine->proses }} | Line: {{ $produksiLine->nama_line }}
+                ID: {{ $produksiLine->id }} | 
+                Tanggal: {{ $produksiLine->tanggal }} | 
+                Proses: {{ $produksiLine->proses }} | 
+                Line: {{ $produksiLine->nama_line }} |
+                <strong>Leader: {{ $produksiLine->leader_name ?? '-' }}</strong>  {{-- 🔥 TAMBAHKAN --}}
             </div>
             
             <div class="table-responsive">
@@ -33,9 +37,9 @@
                     <tbody>
                         @forelse($activities as $activity)
                         <tr>
-                            <td>{{ $activity->created_at->format('d-m-Y H:i:s') }}
-                            <td>{{ $activity->user_name }}
-                            <td>{{ $activity->ip_address ?? '-' }}
+                            <td>{{ $activity->created_at->format('d-m-Y H:i:s') }}</td>
+                            <td>{{ $activity->user_name }}</td>
+                            <td>{{ $activity->ip_address ?? '-' }}</td>
                             <td>
                                 @if($activity->action == 'UPDATE')
                                     <span class="badge bg-warning">UPDATE</span>
@@ -44,7 +48,7 @@
                                 @else
                                     <span class="badge bg-info">{{ $activity->action }}</span>
                                 @endif
-                           
+                            </td>
                             <td>
                                 @if($activity->action == 'UPDATE' && $activity->old_data && $activity->new_data)
                                     @php
@@ -67,10 +71,10 @@
                                         <table class="table table-sm table-borderless mb-0">
                                             @foreach($changes as $change)
                                                 <tr>
-                                                    <td width="30%"><strong>{{ $change['field'] }}</strong>
-                                                    <td width="35%"><span class="text-danger">{{ $change['old'] }}</span>
+                                                    <td width="30%"><strong>{{ $change['field'] }}</strong></td>
+                                                    <td width="35%"><span class="text-danger">{{ $change['old'] }}</span></td>
                                                     <td width="5%" class="text-center">→</td>
-                                                    <td width="30%"><span class="text-success">{{ $change['new'] }}</span>
+                                                    <td width="30%"><span class="text-success">{{ $change['new'] }}</span></td>
                                                 </tr>
                                             @endforeach
                                         </table>
@@ -78,19 +82,39 @@
                                         <span class="text-muted">Tidak ada perubahan signifikan</span>
                                     @endif
                                 @elseif($activity->action == 'CREATE')
+                                    @php
+                                        $new = json_decode($activity->new_data, true);
+                                    @endphp
                                     <span class="text-success">Data baru ditambahkan</span>
+                                    @if($new)
+                                        <br><small class="text-muted">
+                                            <strong>Leader:</strong> {{ $new['leader_name'] ?? '-' }} |
+                                            <strong>Operator:</strong> {{ $new['nama_operator'] ?? '-' }} |
+                                            <strong>Produk:</strong> {{ $new['produk'] ?? '-' }}
+                                        </small>
+                                    @endif
                                 @elseif($activity->action == 'DELETE')
+                                    @php
+                                        $old = json_decode($activity->old_data, true);
+                                    @endphp
                                     <span class="text-danger">Data dihapus</span>
+                                    @if($old)
+                                        <br><small class="text-muted">
+                                            <strong>Leader:</strong> {{ $old['leader_name'] ?? '-' }} |
+                                            <strong>Operator:</strong> {{ $old['nama_operator'] ?? '-' }} |
+                                            <strong>Produk:</strong> {{ $old['produk'] ?? '-' }}
+                                        </small>
+                                    @endif
                                 @else
                                     <span class="text-muted">-</span>
                                 @endif
-                           
+                            </td>
                         </tr>
                         @empty
                             <tr>
                                 <td colspan="5" class="text-center py-4 text-muted">
                                     <i class="fas fa-database me-2"></i> Belum ada riwayat perubahan
-                               
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>

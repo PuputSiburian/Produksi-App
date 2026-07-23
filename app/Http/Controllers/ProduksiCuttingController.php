@@ -32,6 +32,23 @@ class ProduksiCuttingController extends Controller
                             ->select('id', 'kode_produk', 'nama_produk', 'part_number', 'target_standar')
                             ->get();
             
+            if ($produk->isEmpty()) {
+                // Tambahkan data produk default
+                produksi::create([
+                    'kode_produk' => 'PRD-CUT-001',
+                    'nama_produk' => 'Produk Cutting A',
+                    'part_number' => 'PART-CUT-001',
+                    'stasiun' => 'Cutting',
+                    'target_standar' => 1000,
+                    'status' => 'Aktif'
+                ]);
+                
+                $produk = produksi::where('stasiun', 'Cutting')
+                                ->where('status', 'Aktif')
+                                ->select('id', 'kode_produk', 'nama_produk', 'part_number', 'target_standar')
+                                ->get();
+            }
+            
             return view('produksi-cutting.create', compact('produk'));
             
         } catch (\Exception $e) {
@@ -42,19 +59,21 @@ class ProduksiCuttingController extends Controller
     public function store(Request $request)
     {
         try {
+            // 🔥 TAMBAHKAN leader_name KE VALIDASI
             $validated = $request->validate([
                 'tanggal' => 'required|date',
                 'line_cutting' => 'required|string|max:255',
                 'nama_operator' => 'required|string|max:255',
                 'proses' => 'nullable|string|max:255',
                 'produk' => 'required|string|max:255',
-                'lot_produk' => 'nullable|string|max:255',
+                'lot_produk' => 'required|string|max:255',
                 'part_number' => 'required|string|max:255',
                 'warna' => 'required|string|max:255',
                 'target' => 'required|integer|min:1',
                 'qty' => 'required|integer|min:0',
                 'reject' => 'nullable|integer|min:0',
                 'keterangan' => 'nullable|string',
+                'leader_name' => 'required|string|max:255',  // 🔥 TAMBAHKAN
             ]);
 
             $validated['reject'] = $validated['reject'] ?? 0;
@@ -67,7 +86,11 @@ class ProduksiCuttingController extends Controller
 
             $validated['user_id'] = auth()->id();
 
+            // 🔥 SIMPAN DATA
             $produksiCutting = ProduksiCutting::create($validated);
+            
+            // 🔥 LOG AKTIVITAS (CREATE)
+            $produksiCutting->logActivity('CREATE', null, $produksiCutting->toArray());
 
             return redirect()->route('produksi-cutting.index')
                 ->with('success', 'Data produksi cutting berhasil ditambahkan!');
@@ -115,19 +138,21 @@ class ProduksiCuttingController extends Controller
                     ->with('error', 'Anda hanya bisa mengedit data sendiri!');
             }
             
+            // 🔥 TAMBAHKAN leader_name KE VALIDASI UPDATE
             $validated = $request->validate([
                 'tanggal' => 'required|date',
                 'line_cutting' => 'required|string|max:255',
                 'nama_operator' => 'required|string|max:255',
                 'proses' => 'nullable|string|max:255',
                 'produk' => 'required|string|max:255',
-                'lot_produk' => 'nullable|string|max:255',
+                'lot_produk' => 'required|string|max:255',
                 'part_number' => 'required|string|max:255',
                 'warna' => 'required|string|max:255',
                 'target' => 'required|integer|min:1',
                 'qty' => 'required|integer|min:0',
                 'reject' => 'nullable|integer|min:0',
                 'keterangan' => 'nullable|string',
+                'leader_name' => 'required|string|max:255',  // 🔥 TAMBAHKAN
             ]);
 
             $validated['reject'] = $validated['reject'] ?? 0;
@@ -138,7 +163,12 @@ class ProduksiCuttingController extends Controller
                     ->with('error', 'Jumlah Reject tidak boleh lebih besar dari Jumlah Produksi (QTY)!');
             }
 
+            // 🔥 UPDATE DATA
+            $oldData = $produksiCutting->toArray();
             $produksiCutting->update($validated);
+            
+            // 🔥 LOG AKTIVITAS (UPDATE)
+            $produksiCutting->logActivity('UPDATE', $oldData, $produksiCutting->toArray());
 
             return redirect()->route('produksi-cutting.index')
                 ->with('success', 'Data produksi cutting berhasil diupdate!');
@@ -158,6 +188,10 @@ class ProduksiCuttingController extends Controller
                 return redirect()->route('produksi-cutting.index')
                     ->with('error', 'Hanya Admin atau Manager yang bisa menghapus data!');
             }
+            
+            // 🔥 LOG AKTIVITAS (DELETE) SEBELUM DIHAPUS
+            $oldData = $produksiCutting->toArray();
+            $produksiCutting->logActivity('DELETE', $oldData, null);
             
             $produksiCutting->delete();
 
@@ -233,63 +267,79 @@ class ProduksiCuttingController extends Controller
         }
     }
 
-    // ========== EXPORT PDF MINGGUAN ==========
+    // ============================================================
+    // ========== EXPORT PAGE (HARIAN & MINGGUAN) ==========
+    // ============================================================
     
-    public function exportWeekly(Request $request)
+    /**
+     * Halaman Export Laporan (Harian & Mingguan)
+     */
+    public function exportPage(Request $request)
     {
         try {
             $tahun = $request->get('tahun', date('Y'));
             $bulan = $request->get('bulan', date('m'));
-            $minggu = $request->get('minggu', 1);
             
-            $tanggal_mulai = $this->getStartDate($tahun, $bulan, $minggu);
-            $tanggal_akhir = $this->getEndDate($tahun, $bulan, $minggu);
+            // Ambil data tanggal yang tersedia
+            $availableDates = ProduksiCutting::select('tanggal')
+                ->distinct()
+                ->orderBy('tanggal', 'desc')
+                ->pluck('tanggal')
+                ->map(function($date) {
+                    return Carbon::parse($date);
+                });
             
-            $data = ProduksiCutting::whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
-                                   ->orderBy('tanggal', 'desc')
-                                   ->get();
+            // Ambil tahun yang tersedia
+            $availableYears = ProduksiCutting::selectRaw('YEAR(tanggal) as year')
+                ->distinct()
+                ->orderBy('year', 'desc')
+                ->pluck('year');
             
-            return view('exports.produksi-cutting-pdf', compact('data', 'tanggal_mulai', 'tanggal_akhir', 'tahun', 'bulan', 'minggu'));
+            // 🔥 HITUNG MINGGU BERDASARKAN KALENDER (SENIN - MINGGU)
+            $weeks = $this->getAvailableWeeks($tahun, $bulan);
+            
+            return view('produksi-cutting.export-page', compact(
+                'availableDates', 
+                'availableYears', 
+                'weeks',
+                'tahun',
+                'bulan'
+            ));
             
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal load export: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal load halaman export: ' . $e->getMessage());
         }
     }
-    
-    public function downloadWeeklyPDF(Request $request)
+
+    /**
+     * Export Harian
+     */
+    public function exportHarian(Request $request)
     {
         try {
-            ini_set('memory_limit', '4096M');
-            set_time_limit(1200);
-            
             $request->validate([
-                'tahun' => 'required|integer|min:2020|max:2030',
-                'bulan' => 'required|integer|between:1,12',
-                'minggu' => 'required|integer|between:1,5'
+                'tanggal' => 'required|date'
             ]);
             
-            $tahun = $request->tahun;
-            $bulan = $request->bulan;
-            $minggu = $request->minggu;
+            $tanggal = $request->tanggal;
             
-            $tanggal_mulai = $this->getStartDate($tahun, $bulan, $minggu);
-            $tanggal_akhir = $this->getEndDate($tahun, $bulan, $minggu);
-            
-            $data = ProduksiCutting::whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir])
-                                   ->orderBy('tanggal', 'desc')
-                                   ->get();
+            $data = ProduksiCutting::whereDate('tanggal', $tanggal)
+                ->orderBy('tanggal', 'desc')
+                ->get();
             
             if ($data->isEmpty()) {
-                return redirect()->back()->with('error', 'Tidak ada data!');
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Tidak ada data untuk tanggal ' . Carbon::parse($tanggal)->format('d/m/Y'));
             }
             
             $pdf = Pdf::loadView('exports.produksi-cutting-pdf', [
                 'data' => $data,
-                'tanggal_mulai' => $tanggal_mulai,
-                'tanggal_akhir' => $tanggal_akhir,
-                'tahun' => $tahun,
-                'bulan' => $bulan,
-                'minggu' => $minggu,
+                'tanggal_mulai' => $tanggal,
+                'tanggal_akhir' => $tanggal,
+                'tahun' => Carbon::parse($tanggal)->year,
+                'bulan' => Carbon::parse($tanggal)->month,
+                'minggu' => 'Harian - ' . Carbon::parse($tanggal)->format('d/m/Y'),
                 'totalTarget' => $data->sum('target'),
                 'totalQty' => $data->sum('qty'),
                 'totalReject' => $data->sum('reject'),
@@ -299,13 +349,180 @@ class ProduksiCuttingController extends Controller
             
             $pdf->setPaper('A4', 'landscape');
             
-            return $pdf->download('laporan-cutting-mingguan.pdf');
+            return $pdf->download('laporan_cutting_' . Carbon::parse($tanggal)->format('Y-m-d') . '.pdf');
             
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal download PDF: ' . $e->getMessage());
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Gagal export PDF: ' . $e->getMessage());
         }
     }
+
+    /**
+     * 🔥 EXPORT MINGGUAN (SENIN - MINGGU / SENIN - JUMAT)
+     */
+    public function exportMingguan(Request $request)
+    {
+        try {
+            ini_set('memory_limit', '4096M');
+            set_time_limit(1200);
+            
+            $request->validate([
+                'tahun' => 'required|integer',
+                'bulan' => 'required|integer|between:1,12',
+                'start_date' => 'required|date',
+                'end_date' => 'required|date|after_or_equal:start_date',
+                'week_label' => 'nullable|string',
+                'filter_type' => 'nullable|string|in:full,workday' // full = Senin-Minggu, workday = Senin-Jumat
+            ]);
+            
+            $tahun = $request->tahun;
+            $bulan = $request->bulan;
+            $tanggal_mulai = $request->start_date;
+            $tanggal_akhir = $request->end_date;
+            $weekLabel = $request->week_label ?? 'Mingguan';
+            $filterType = $request->filter_type ?? 'full';
+            
+            // 🔥 FILTER DATA BERDASARKAN JENIS
+            $query = ProduksiCutting::whereBetween('tanggal', [$tanggal_mulai, $tanggal_akhir]);
+            
+            // Jika filter = workday (Senin - Jumat), exclude Sabtu & Minggu
+            if ($filterType == 'workday') {
+                $query->whereRaw('DAYOFWEEK(tanggal) BETWEEN 2 AND 6'); // 2=Senin, 6=Jumat
+            }
+            
+            $data = $query->orderBy('tanggal', 'desc')->get();
+            
+            if ($data->isEmpty()) {
+                $periodeLabel = ($filterType == 'workday') ? 'Senin-Jumat' : 'Senin-Minggu';
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Tidak ada data untuk periode ' . $periodeLabel . ' yang dipilih!');
+            }
+            
+            // 🔥 HITUNG STATISTIK PER HARI
+            $dailyStats = [];
+            $currentDate = Carbon::parse($tanggal_mulai);
+            $end = Carbon::parse($tanggal_akhir);
+            
+            while ($currentDate <= $end) {
+                $dateStr = $currentDate->format('Y-m-d');
+                $dayName = $currentDate->format('l');
+                $isWeekend = in_array($dayName, ['Saturday', 'Sunday']);
+                
+                $dailyData = ProduksiCutting::whereDate('tanggal', $dateStr);
+                if ($filterType == 'workday' && $isWeekend) {
+                    // Skip weekend untuk workday
+                    $currentDate->addDay();
+                    continue;
+                }
+                
+                $dailyStats[$dateStr] = [
+                    'tanggal' => $dateStr,
+                    'hari' => $currentDate->format('d/m/Y'),
+                    'nama_hari' => $currentDate->translatedFormat('l'),
+                    'target' => $dailyData->sum('target'),
+                    'qty' => $dailyData->sum('qty'),
+                    'reject' => $dailyData->sum('reject'),
+                    'hasil' => $dailyData->sum('qty') - $dailyData->sum('reject'),
+                    'is_weekend' => $isWeekend
+                ];
+                $currentDate->addDay();
+            }
+            
+            $pdf = Pdf::loadView('exports.produksi-cutting-pdf', [
+                'data' => $data,
+                'dailyStats' => $dailyStats,
+                'tanggal_mulai' => $tanggal_mulai,
+                'tanggal_akhir' => $tanggal_akhir,
+                'tahun' => $tahun,
+                'bulan' => $bulan,
+                'minggu' => $weekLabel . ($filterType == 'workday' ? ' (Senin-Jumat)' : ' (Full Week)'),
+                'filter_type' => $filterType,
+                'totalTarget' => $data->sum('target'),
+                'totalQty' => $data->sum('qty'),
+                'totalReject' => $data->sum('reject'),
+                'totalHasil' => $data->sum('qty') - $data->sum('reject'),
+                'efisiensi' => $data->sum('target') > 0 ? round(($data->sum('qty') / $data->sum('target')) * 100, 2) : 0
+            ]);
+            
+            $pdf->setPaper('A4', 'landscape');
+            
+            $nama_bulan = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                           'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            
+            $suffix = ($filterType == 'workday') ? '_Senin-Jumat' : '_Full-Week';
+            
+            return $pdf->download('laporan_cutting_' . $nama_bulan[(int)$bulan] . '_' . $tahun . '_' . $weekLabel . $suffix . '.pdf');
+            
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Gagal download PDF: ' . $e->getMessage());
+        }
+    }
+
+    // ============================================================
+    // ========== HELPER METHODS ==========
+    // ============================================================
     
+    /**
+     * 🔥 GET AVAILABLE WEEKS (SENIN - MINGGU)
+     */
+    private function getAvailableWeeks($tahun, $bulan)
+    {
+        // Ambil semua tanggal yang tersedia di bulan tersebut
+        $availableDates = ProduksiCutting::select('tanggal')
+            ->whereYear('tanggal', $tahun)
+            ->whereMonth('tanggal', $bulan)
+            ->distinct()
+            ->orderBy('tanggal')
+            ->pluck('tanggal')
+            ->map(function($date) {
+                return Carbon::parse($date);
+            });
+        
+        if ($availableDates->isEmpty()) {
+            return [];
+        }
+        
+        // 🔥 HITUNG MINGGU BERDASARKAN KALENDER (SENIN = AWAL MINGGU)
+        $weeks = [];
+        $weekNumber = 1;
+        $currentWeek = [];
+        $weekStart = null;
+        
+        foreach ($availableDates as $date) {
+            // Tentukan awal minggu (Senin)
+            $monday = $date->copy()->startOfWeek(Carbon::MONDAY);
+            $sunday = $date->copy()->endOfWeek(Carbon::SUNDAY);
+            
+            // Jika minggu baru dimulai
+            if ($weekStart === null || $monday->format('Y-m-d') != $weekStart->format('Y-m-d')) {
+                if (!empty($currentWeek)) {
+                    $currentWeek['end'] = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+                    $weeks[] = $currentWeek;
+                    $weekNumber++;
+                }
+                
+                $weekStart = $monday;
+                $currentWeek = [
+                    'start' => $monday,
+                    'end' => $sunday,
+                    'week_number' => $weekNumber
+                ];
+            }
+        }
+        
+        // Tambahkan minggu terakhir
+        if (!empty($currentWeek)) {
+            $currentWeek['end'] = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+            $weeks[] = $currentWeek;
+        }
+        
+        return $weeks;
+    }
+
     private function getStartDate($tahun, $bulan, $minggu)
     {
         $date = Carbon::create($tahun, $bulan, 1);

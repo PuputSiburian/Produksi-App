@@ -1,288 +1,246 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Laporan Produksi Cutting - PT Getronics Batam</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            font-size: 9px; 
-            margin: 20px;
-        }
-        .header { 
-            text-align: center; 
-            margin-bottom: 20px; 
-            border-bottom: 2px solid #0d47a1; 
-            padding-bottom: 10px; 
-        }
-        .header h1 { 
-            margin: 0; 
-            font-size: 16px; 
-            color: #0d47a1; 
-        }
-        .header p { 
-            margin: 5px 0; 
-        }
-        
-        .filter-form {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #e9ecef;
-            border-radius: 8px;
-            display: flex;
-            gap: 15px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .filter-group label {
-            font-size: 11px;
-            margin-bottom: 5px;
-            color: #555;
-            font-weight: bold;
-        }
-        .filter-group select, .filter-group input {
-            padding: 6px 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-        .btn-filter {
-            padding: 6px 15px;
-            background-color: #0d47a1;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .btn-pdf {
-            padding: 6px 15px;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .btn-filter:hover { background-color: #0a3b8a; }
-        .btn-pdf:hover { background-color: #c82333; }
-        
-        .info-periode {
-            text-align: center;
-            padding: 10px;
-            background: #d4edda;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 20px; 
-        }
-        th, td { 
-            border: 1px solid #ddd; 
-            padding: 5px; 
-            text-align: left; 
-            vertical-align: top; 
-        }
-        th { 
-            background-color: #0d47a1; 
-            color: white; 
-            font-size: 9px; 
-        }
-        .footer { 
-            margin-top: 20px; 
-            text-align: center; 
-            font-size: 9px; 
-        }
-        .text-right { 
-            text-align: right; 
-        }
-        .summary { 
-            margin-top: 20px; 
-            padding: 10px; 
-            background: #f5f5f5; 
-            font-size: 9px; 
-        }
-        
-        .col-no { width: 4%; }
-        .col-tanggal { width: 8%; }
-        .col-line { width: 8%; }
-        .col-operator { width: 10%; }
-        .col-produk { width: 8%; }
-        .col-part { width: 10%; }
-        .col-lot { width: 8%; }
-        .col-warna { width: 6%; }
-        .col-target { width: 7%; text-align: right; }
-        .col-qty { width: 7%; text-align: right; }
-        .col-reject { width: 7%; text-align: right; }
-        .col-hasil { width: 7%; text-align: right; }
-        .col-keterangan { width: 10%; word-wrap: break-word; }
-    </style>
-</head>
-<body>
+@extends('layouts.app')
 
-<!-- FORM FILTER MINGGUAN -->
-<form method="GET" action="{{ route('produksi-cutting.mingguan') }}" class="filter-form">
-    <div class="filter-group">
-        <label>📅 Pilih Tahun</label>
-        <select name="tahun">
-            @for($i = date('Y')-2; $i <= date('Y')+1; $i++)
-                <option value="{{ $i }}" {{ (request()->get('tahun', date('Y')) == $i) ? 'selected' : '' }}>{{ $i }}</option>
-            @endfor
-        </select>
+@section('content')
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-export me-2"></i> Export Laporan - Cutting
+                    </h4>
+                </div>
+                <div class="card-body">
+                    
+                    @if(session('error'))
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i> {{ session('error') }}
+                        </div>
+                    @endif
+
+                    <!-- ============================================ -->
+                    <!-- TAB PILIHAN EXPORT -->
+                    <!-- ============================================ -->
+                    <ul class="nav nav-tabs nav-fill mb-4" id="exportTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="harian-tab" data-bs-toggle="tab" data-bs-target="#harian" type="button" role="tab">
+                                <i class="fas fa-calendar-day me-2"></i> Export Harian
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="mingguan-tab" data-bs-toggle="tab" data-bs-target="#mingguan" type="button" role="tab">
+                                <i class="fas fa-calendar-week me-2"></i> Export Mingguan
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- ============================================ -->
+                    <!-- TAB HARIAN -->
+                    <!-- ============================================ -->
+                    <div class="tab-content" id="exportTabContent">
+                        
+                        <!-- HARIAN -->
+                        <div class="tab-pane fade show active" id="harian" role="tabpanel">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Pilih tanggal untuk mengekspor laporan harian.
+                            </div>
+                            
+                            <form action="{{ route('produksi-cutting.export.harian') }}" method="GET" id="formHarian">
+                                <div class="row">
+                                    <div class="col-md-8 mb-3">
+                                        <label class="form-label fw-bold">📅 Pilih Tanggal</label>
+                                        <input type="date" name="tanggal" class="form-control" 
+                                               value="{{ date('Y-m-d') }}" required>
+                                    </div>
+                                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                                        <button type="submit" class="btn btn-primary w-100" id="btnHarian">
+                                            <i class="fas fa-file-pdf me-1"></i> Export PDF
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                            
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-database me-1"></i>
+                                    Data tersedia: 
+                                    <span class="badge bg-info">{{ $availableDates->count() }}</span> hari
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- MINGGUAN -->
+                        <div class="tab-pane fade" id="mingguan" role="tabpanel">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Pilih tahun, bulan, dan minggu untuk mengekspor laporan mingguan.
+                                <br>
+                                <small class="text-muted">
+                                    * Minggu yang tersedia berdasarkan data yang ada di database
+                                </small>
+                            </div>
+                            
+                            <form action="{{ route('produksi-cutting.export.mingguan') }}" method="GET" id="formMingguan">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label fw-bold">📅 Tahun</label>
+                                        <select name="tahun" id="tahunMingguan" class="form-control" required>
+                                            @if($availableYears->count() > 0)
+                                                @foreach($availableYears as $year)
+                                                    <option value="{{ $year }}" {{ $year == $tahun ? 'selected' : '' }}>
+                                                        {{ $year }}
+                                                    </option>
+                                                @endforeach
+                                            @else
+                                                @for($i = date('Y'); $i >= 2020; $i--)
+                                                    <option value="{{ $i }}" {{ $i == $tahun ? 'selected' : '' }}>
+                                                        {{ $i }}
+                                                    </option>
+                                                @endfor
+                                            @endif
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label fw-bold">📆 Bulan</label>
+                                        <select name="bulan" id="bulanMingguan" class="form-control" required>
+                                            @foreach(['Januari','Februari','Maret','April','Mei','Juni',
+                                                      'Juli','Agustus','September','Oktober','November','Desember'] as $key => $bulanName)
+                                                <option value="{{ $key+1 }}" {{ ($key+1) == $bulan ? 'selected' : '' }}>
+                                                    {{ $bulanName }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label fw-bold">📊 Pilih Minggu</label>
+                                        <select name="week_label" id="weekSelect" class="form-control" required>
+                                            <option value="">-- Pilih Minggu --</option>
+                                            @foreach($weeks as $index => $week)
+                                                @php
+                                                    $start = \Carbon\Carbon::parse($week['start']);
+                                                    $end = \Carbon\Carbon::parse($week['end']);
+                                                    $label = 'Minggu ' . ($index + 1) . ' (' . $start->format('d/m/Y') . ' - ' . $end->format('d/m/Y') . ')';
+                                                @endphp
+                                                <option value="{{ $label }}" 
+                                                    data-start="{{ $start->format('Y-m-d') }}" 
+                                                    data-end="{{ $end->format('Y-m-d') }}">
+                                                    {{ $label }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <input type="hidden" name="start_date" id="start_date">
+                                        <input type="hidden" name="end_date" id="end_date">
+                                        <small class="text-muted" id="weekInfo">
+                                            @if(count($weeks) > 0)
+                                                <i class="fas fa-check-circle text-success"></i> 
+                                                {{ count($weeks) }} minggu tersedia
+                                            @else
+                                                <i class="fas fa-exclamation-circle text-warning"></i> 
+                                                Tidak ada data untuk periode ini
+                                            @endif
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center mt-2">
+                                    <button type="submit" class="btn btn-primary" id="btnMingguan">
+                                        <i class="fas fa-file-pdf me-1"></i> Export PDF Mingguan
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                    </div>
+
+                    <!-- TOMBOL KEMBALI -->
+                    <div class="mt-4 text-center">
+                        <a href="{{ route('produksi-cutting.index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Kembali
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="filter-group">
-        <label>📆 Pilih Bulan</label>
-        <select name="bulan">
-            <option value="1" {{ (request()->get('bulan', date('m')) == 1) ? 'selected' : '' }}>Januari</option>
-            <option value="2" {{ (request()->get('bulan', date('m')) == 2) ? 'selected' : '' }}>Februari</option>
-            <option value="3" {{ (request()->get('bulan', date('m')) == 3) ? 'selected' : '' }}>Maret</option>
-            <option value="4" {{ (request()->get('bulan', date('m')) == 4) ? 'selected' : '' }}>April</option>
-            <option value="5" {{ (request()->get('bulan', date('m')) == 5) ? 'selected' : '' }}>Mei</option>
-            <option value="6" {{ (request()->get('bulan', date('m')) == 6) ? 'selected' : '' }}>Juni</option>
-            <option value="7" {{ (request()->get('bulan', date('m')) == 7) ? 'selected' : '' }}>Juli</option>
-            <option value="8" {{ (request()->get('bulan', date('m')) == 8) ? 'selected' : '' }}>Agustus</option>
-            <option value="9" {{ (request()->get('bulan', date('m')) == 9) ? 'selected' : '' }}>September</option>
-            <option value="10" {{ (request()->get('bulan', date('m')) == 10) ? 'selected' : '' }}>Oktober</option>
-            <option value="11" {{ (request()->get('bulan', date('m')) == 11) ? 'selected' : '' }}>November</option>
-            <option value="12" {{ (request()->get('bulan', date('m')) == 12) ? 'selected' : '' }}>Desember</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>📊 Pilih Minggu ke-</label>
-        <select name="minggu">
-            <option value="1" {{ (request()->get('minggu', 1) == 1) ? 'selected' : '' }}>Minggu 1 (1-7)</option>
-            <option value="2" {{ (request()->get('minggu', 1) == 2) ? 'selected' : '' }}>Minggu 2 (8-14)</option>
-            <option value="3" {{ (request()->get('minggu', 1) == 3) ? 'selected' : '' }}>Minggu 3 (15-21)</option>
-            <option value="4" {{ (request()->get('minggu', 1) == 4) ? 'selected' : '' }}>Minggu 4 (22-28)</option>
-            <option value="5" {{ (request()->get('minggu', 1) == 5) ? 'selected' : '' }}>Minggu 5 (29-31)</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <button type="submit" class="btn-filter">🔍 Tampilkan</button>
-    </div>
-    <div class="filter-group">
-        <button type="button" class="btn-pdf" onclick="exportToPDF()">📄 Export PDF</button>
-    </div>
-</form>
-
-<!-- HEADER LAPORAN -->
-<div class="header">
-    <h1>PT GETRONICS BATAM</h1>
-    <p>Laporan Produksi Cutting</p>
-    <p>Tanggal Cetak: {{ date('d F Y H:i:s') }}</p>
-</div>
-
-<!-- INFORMASI PERIODE -->
-<div class="info-periode">
-    📅 Periode Laporan: 
-    @if(isset($tanggal_mulai) && isset($tanggal_akhir) && $tanggal_mulai && $tanggal_akhir)
-        {{ \Carbon\Carbon::parse($tanggal_mulai)->translatedFormat('d F Y') }} 
-        s/d 
-        {{ \Carbon\Carbon::parse($tanggal_akhir)->translatedFormat('d F Y') }}
-        @if(isset($minggu))
-            (Minggu ke-{{ $minggu }})
-        @endif
-    @else
-        Semua Data (Tanpa Filter)
-    @endif
-</div>
-
-<!-- TOTAL DATA -->
-<p>Total Data: {{ isset($data) ? $data->count() : 0 }} record</p>
-
-<!-- TABEL DATA -->
-<table class="table table-bordered table-striped">
-    <thead>
-        <tr>
-            <th class="col-no">No</th>
-            <th class="col-tanggal">Tanggal</th>
-            <th class="col-line">Line Cutting</th>
-            <th class="col-operator">Operator</th>
-            <th class="col-produk">Produk</th>
-            <th class="col-part">Part Number</th>
-            <th class="col-lot">Lot</th>
-            <th class="col-warna">Warna</th>
-            <th class="col-target">Target</th>
-            <th class="col-qty">QTY</th>
-            <th class="col-reject">Reject</th>
-            <th class="col-hasil">Hasil</th>
-            <th class="col-keterangan">Keterangan</th>
-        </tr>
-    </thead>
-    <tbody>
-        @if(isset($data) && $data->count() > 0)
-            @foreach($data as $index => $item)
-            <tr>
-                <td class="col-no text-right">{{ $index + 1 }}</td>
-                <td class="col-tanggal">{{ \Carbon\Carbon::parse($item->tanggal)->format('d/m/Y') }}</td>
-                <td class="col-line">{{ $item->line_cutting ?? '-' }}</td>
-                <td class="col-operator">{{ $item->nama_operator ?? '-' }}</td>
-                <td class="col-produk">{{ $item->produk ?? '-' }}</td>
-                <td class="col-part">{{ $item->part_number ?? '-' }}</td>
-                <td class="col-lot">{{ $item->lot_produk ?? '-' }}</td>
-                <td class="col-warna">{{ $item->warna ?? '-' }}</td>
-                <td class="col-target text-right">{{ number_format($item->target ?? 0) }}</td>
-                <td class="col-qty text-right">{{ number_format($item->qty ?? 0) }}</td>
-                <td class="col-reject text-right">{{ number_format($item->reject ?? 0) }}</td>
-                <td class="col-hasil text-right">{{ number_format(($item->qty ?? 0) - ($item->reject ?? 0)) }}</td>
-                <td class="col-keterangan">{{ $item->keterangan ?? '-' }}</td>
-            </tr>
-            @endforeach
-        @else
-            <tr>
-                <td colspan="13" style="text-align: center; padding: 20px; color: #999;">
-                    <strong>Tidak ada data untuk periode yang dipilih</strong>
-                </td>
-            </tr>
-        @endif
-    </tbody>
-    @if(isset($data) && $data->count() > 0)
-    <tfoot>
-        <tr style="background-color: #0d47a1; color: white; font-weight: bold;">
-            <td colspan="8" class="text-right">TOTAL</td>
-            <td class="text-right">{{ number_format($data->sum('target')) }}</td>
-            <td class="text-right">{{ number_format($data->sum('qty')) }}</td>
-            <td class="text-right">{{ number_format($data->sum('reject')) }}</td>
-            <td class="text-right">{{ number_format($data->sum('qty') - $data->sum('reject')) }}</td>
-            <td class="text-right"></td>
-        </tr>
-    </tfoot>
-    @endif
-</table>
-
-<!-- RINGKASAN -->
-@if(isset($data) && $data->count() > 0)
-<div class="summary">
-    <strong>📊 RINGKASAN PRODUKSI CUTTING:</strong><br>
-    Total Target: {{ number_format($data->sum('target')) }} unit<br>
-    Total QTY: {{ number_format($data->sum('qty')) }} unit<br>
-    Total Reject: {{ number_format($data->sum('reject')) }} unit<br>
-    Total Produksi Baik: {{ number_format($data->sum('qty') - $data->sum('reject')) }} unit<br>
-    Efisiensi Produksi: {{ $data->sum('target') > 0 ? round(($data->sum('qty') / $data->sum('target')) * 100, 2) : 0 }}%
-</div>
-@endif
-
-<div class="footer">
-    Sistem Informasi Manajemen Produksi - PT Getronics Batam
 </div>
 
 <script>
-    function exportToPDF() {
-        let tahun = document.querySelector('select[name="tahun"]').value;
-        let bulan = document.querySelector('select[name="bulan"]').value;
-        let minggu = document.querySelector('select[name="minggu"]').value;
-        window.location.href = '{{ route("produksi-cutting.mingguan.download") }}?tahun=' + tahun + '&bulan=' + bulan + '&minggu=' + minggu;
-    }
+    document.addEventListener('DOMContentLoaded', function() {
+        // =========================================================
+        // MINGGUAN - SET DATA TANGGAL
+        // =========================================================
+        const weekSelect = document.getElementById('weekSelect');
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+        const formMingguan = document.getElementById('formMingguan');
+        const btnMingguan = document.getElementById('btnMingguan');
+        const tahunMingguan = document.getElementById('tahunMingguan');
+        const bulanMingguan = document.getElementById('bulanMingguan');
+        const weekInfo = document.getElementById('weekInfo');
+        
+        // Set tanggal saat pilih minggu
+        if (weekSelect) {
+            weekSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const startDate = selectedOption.getAttribute('data-start') || '';
+                const endDate = selectedOption.getAttribute('data-end') || '';
+                
+                startDateInput.value = startDate;
+                endDateInput.value = endDate;
+            });
+        }
+        
+        // Reload saat tahun atau bulan berubah
+        function reloadWeeks() {
+            const tahun = tahunMingguan.value;
+            const bulan = bulanMingguan.value;
+            window.location.href = '{{ route("produksi-cutting.export.page") }}?tahun=' + tahun + '&bulan=' + bulan;
+        }
+        
+        if (tahunMingguan) {
+            tahunMingguan.addEventListener('change', reloadWeeks);
+        }
+        if (bulanMingguan) {
+            bulanMingguan.addEventListener('change', reloadWeeks);
+        }
+        
+        // =========================================================
+        // LOADING SAAT SUBMIT
+        // =========================================================
+        // Form Harian
+        const formHarian = document.getElementById('formHarian');
+        if (formHarian) {
+            formHarian.addEventListener('submit', function(e) {
+                const btn = document.getElementById('btnHarian');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Memproses...';
+            });
+        }
+        
+        // Form Mingguan
+        if (formMingguan) {
+            formMingguan.addEventListener('submit', function(e) {
+                if (!startDateInput.value || !endDateInput.value) {
+                    e.preventDefault();
+                    alert('Silakan pilih minggu terlebih dahulu!');
+                    return;
+                }
+                
+                btnMingguan.disabled = true;
+                btnMingguan.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Memproses...';
+            });
+        }
+        
+        // =========================================================
+        // SET DEFAULT TANGGAL UNTUK HARIAN
+        // =========================================================
+        const dateInput = document.querySelector('input[name="tanggal"]');
+        if (dateInput) {
+            dateInput.max = new Date().toISOString().split('T')[0];
+        }
+    });
 </script>
-
-</body>
-</html>
+@endsection

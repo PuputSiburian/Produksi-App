@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProduksiCrimping;
-use App\Models\produksi;  // 🔥 PAKAI produksi (bukan produk)
+use App\Models\produksi;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -26,15 +27,12 @@ class ProduksiCrimpingController extends Controller
     public function create()
     {
         try {
-            // 🔥 PAKAI produksi
             $produk = produksi::where('stasiun', 'Crimping')
                             ->where('status', 'Aktif')
                             ->select('id', 'kode_produk', 'nama_produk', 'part_number', 'target_standar')
                             ->get();
             
-            // 🔥 CEK DATA PRODUK
             if ($produk->isEmpty()) {
-                // Tambahkan data produk default
                 produksi::create([
                     'kode_produk' => 'PRD-CRM-001',
                     'nama_produk' => 'Produk Crimping A',
@@ -60,18 +58,20 @@ class ProduksiCrimpingController extends Controller
     public function store(Request $request)
     {
         try {
+            // 🔥 TAMBAHKAN leader_name KE VALIDASI
             $validated = $request->validate([
                 'tanggal' => 'required|date',
                 'line_crimping' => 'required|string|max:255',
                 'nama_operator' => 'required|string|max:255',
                 'produk' => 'required|string|max:255',
-                'lot_produk' => 'nullable|string|max:255',
+                'lot_produk' => 'required|string|max:255',
                 'part_number' => 'required|string|max:255',
                 'warna' => 'required|string|max:255',
                 'target' => 'required|integer|min:1',
                 'qty' => 'required|integer|min:0',
                 'reject' => 'nullable|integer|min:0',
-                'keterangan' => 'nullable|string',  // 🔥 PASTIKAN ADA
+                'keterangan' => 'nullable|string',
+                'leader_name' => 'required|string|max:255',  // 🔥 TAMBAHKAN
             ]);
 
             $validated['reject'] = $validated['reject'] ?? 0;
@@ -85,6 +85,7 @@ class ProduksiCrimpingController extends Controller
             $validated['user_id'] = auth()->id();
 
             $produksiCrimping = ProduksiCrimping::create($validated);
+            $produksiCrimping->logActivity('CREATE', null, $produksiCrimping->toArray());
 
             return redirect()->route('produksi-crimping.index')
                 ->with('success', 'Data produksi crimping berhasil ditambahkan!');
@@ -110,7 +111,6 @@ class ProduksiCrimpingController extends Controller
                     ->with('error', 'Anda hanya bisa mengedit data sendiri!');
             }
             
-            // 🔥 PAKAI produksi
             $produk = produksi::where('stasiun', 'Crimping')
                             ->where('status', 'Aktif')
                             ->select('id', 'kode_produk', 'nama_produk', 'part_number', 'target_standar')
@@ -133,18 +133,20 @@ class ProduksiCrimpingController extends Controller
                     ->with('error', 'Anda hanya bisa mengedit data sendiri!');
             }
             
+            // 🔥 TAMBAHKAN leader_name KE VALIDASI UPDATE
             $validated = $request->validate([
                 'tanggal' => 'required|date',
                 'line_crimping' => 'required|string|max:255',
                 'nama_operator' => 'required|string|max:255',
                 'produk' => 'required|string|max:255',
-                'lot_produk' => 'nullable|string|max:255',
+                'lot_produk' => 'required|string|max:255',
                 'part_number' => 'required|string|max:255',
                 'warna' => 'required|string|max:255',
                 'target' => 'required|integer|min:1',
                 'qty' => 'required|integer|min:0',
                 'reject' => 'nullable|integer|min:0',
                 'keterangan' => 'nullable|string',
+                'leader_name' => 'required|string|max:255',  // 🔥 TAMBAHKAN
             ]);
 
             $validated['reject'] = $validated['reject'] ?? 0;
@@ -155,7 +157,9 @@ class ProduksiCrimpingController extends Controller
                     ->with('error', 'Jumlah Reject tidak boleh lebih besar dari Jumlah Produksi (QTY)!');
             }
 
+            $oldData = $produksiCrimping->toArray();
             $produksiCrimping->update($validated);
+            $produksiCrimping->logActivity('UPDATE', $oldData, $produksiCrimping->toArray());
 
             return redirect()->route('produksi-crimping.index')
                 ->with('success', 'Data produksi crimping berhasil diupdate!');
@@ -176,6 +180,8 @@ class ProduksiCrimpingController extends Controller
                     ->with('error', 'Hanya Admin atau Manager yang bisa menghapus data!');
             }
             
+            $oldData = $produksiCrimping->toArray();
+            $produksiCrimping->logActivity('DELETE', $oldData, null);
             $produksiCrimping->delete();
 
             return redirect()->route('produksi-crimping.index')
@@ -204,7 +210,7 @@ class ProduksiCrimpingController extends Controller
             $data = ProduksiCrimping::latest()->get();
             
             if ($data->isEmpty()) {
-                return redirect()->back()->with('error', 'Tidak ada data!');
+                return redirect()->back()->with('error', 'Tidak ada数据!');
             }
             
             $tanggal_mulai = $data->last()->tanggal ?? now();
@@ -235,7 +241,11 @@ class ProduksiCrimpingController extends Controller
     public function history(ProduksiCrimping $produksiCrimping)
     {
         try {
-            $activities = $produksiCrimping->activities()->paginate(20);
+            $activities = ActivityLog::where('table_name', 'produksi_crimpings')
+                                     ->where('record_id', $produksiCrimping->id)
+                                     ->orderBy('created_at', 'desc')
+                                     ->paginate(20);
+            
             return view('produksi-crimping.history', compact('produksiCrimping', 'activities'));
             
         } catch (\Exception $e) {
